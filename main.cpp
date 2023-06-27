@@ -11,216 +11,44 @@ mt19937 rng{ rd() };
 uniform_real_distribution<double> dist{ 0.0, 1.0 }; //This generates a random number between 0 and 1 Usage example: dist(rng)
 
 int random_integer(int sides);
-int* pick_particle(int ***array, int size);
-int* pick_prey_site(int ***array, int size, int row, int column);
-int* pick_birth_site(int ***array, int size, int row, int column);
-
-void initialize_array(int*** array, const int length, const double density, int K) {
-
-    int C_capacity = density/2*length*length; // carrying capacity for each species
-    for (int species = 0; species < 2; species++) { // places the species on a site within respective 3rd dimension
-        for (int i = 1; i <= C_capacity; i++) {
-            int row = random_integer(length)-1;
-            int column = random_integer(length)-1;
-            if (array[0][row][column]+array[1][row][column] < K) {
-                array[species][row][column] += 1;
-            } else {
-                i--;
-            }
-        }
-    }/*
-    for (int i = 0; i < length; i++) { // Display the array
-        for (int j = 0; j < length; j++) {
-            int num=array[0][i][j]+array[1][i][j];
-            cout << num << " ";
-        }
-        cout << endl;
-    }*/
-}
-
-int random_integer(int sides) { // returns values from 1 to sides
-    int roll = (rand() % sides) + 1;
-    return roll;
-}
-
-void update_array(int ***array,int size,int* N, double death_rate, double birth_rate, double pred_rate, double cell_limit) {
-    int moves = N[0]+N[1];
-
-    for (int i=1; i<=moves; i++){
-        if (N[0]+N[1] == 0) { // checks for the absorbing state
-            return;
-        }
-        double death_prob = death_rate/(death_rate+pred_rate);
-        double pred_prob = pred_rate/(death_rate+pred_rate);
-        double birth_prob = birth_rate/(birth_rate);
-
-        int* site = pick_particle(array, size); // returns the location of a particle
-        int row = site[0];
-        int column = site[1];
-        double roll = dist(rng);
-        if (array[0][row][column] == 1){
-            // it's a predator
-            if (roll < 0.5) {
-                // death attempt
-                if (roll<death_prob){
-                    //predator dies
-                    array[0][row][column]=array[0][row][column]-1;
-                    N[0]=N[0]-1;
-                }
-            } else {
-                //predation attempt - CHECK FOR NEARBY PREY
-                int* prey_site = pick_prey_site(array, size, row, column); // return the location of a neighboring prey
-                if (prey_site != nullptr) {
-                    int prey_row = prey_site[0];
-                    int prey_column = prey_site[1];
-                    if (roll < pred_prob) {
-                        //successful predation
-                        array[1][prey_row][prey_column] = array[1][prey_row][prey_column] - 1;
-                        array[0][prey_row][prey_column] = array[0][prey_row][prey_column] + 1;
-                        N[0] = N[0] + 1;
-                        N[1] = N[1] - 1;
-                    }
-                }
-            }
-        } else {
-            // it's a prey & therefore birth attempt - CHECK FOR NEARBY OPEN CELL
-            int* birth_site = pick_birth_site(array, size, row, column);
-            if (birth_site != nullptr) {
-                int birth_row = birth_site[0];
-                int birth_column = birth_site[1];
-                array[1][birth_row][birth_column] = array[1][birth_row][birth_column] + 1;
-                N[1] = N[1] + 1;
-            }
-        }
-    }
-}
-
-int* pick_birth_site(int ***array, int size, int row, int column) {
-    static int site[2];
-
-    int right = column == (size - 1) ? 0 : column + 1;
-    /* ^This line checks if x is equal to size - 1. If it is, it means x is at the right boundary of the array,
-     * so the value of right is set to 0. Otherwise, x is incremented by 1, and that value is assigned to right. */
-    int left = column == 0 ? size - 1 : column - 1;
-    int up = row == (size - 1) ? 0 : row + 1;
-    int down = row == 0 ? size - 1 : row - 1;
-
-    int variable=0;
-
-    if (array[1][row][right]+array[0][row][right]!=0){
-        variable = variable+1;
-    }
-    if (array[1][row][left]+array[0][row][left]!=0){
-        variable = variable+10;
-    }
-    if (array[1][up][column]+array[0][up][column]!=0){
-        variable = variable+100;
-    }
-    if (array[1][down][column]+array[0][down][column]!=0){
-        variable = variable+1000;
-    }
-    if (variable == 1111){ //checks if all are full
-        return NULL;
-    }
-    int loopcase = 0;
-    do {
-        int cell=random_integer(4);
-        switch (cell){
-            case 1:
-                if (array[0][row][right] + array[1][row][right]==0){
-                    site[0]=row;site[1]=right;
-                    loopcase=1;
-                }
-                break;
-            case 2:
-                if (array[0][row][left] + array[1][row][left]==0){
-                    site[0]=row;site[1]=left;
-                    loopcase=1;
-                }
-                break;
-            case 3:
-                if (array[0][up][column] + array[1][up][column]==0){
-                    site[0]=up;site[1]=column;
-                    loopcase=1;
-                }
-                break;
-            case 4:
-                if (array[0][down][column] + array[1][down][column]==0){
-                    site[0]=down;site[1]=column;
-                    loopcase=1;
-                }
-                break;
-            default:
-                cout << "the code broke.";
-                break;
-        }
-    }while(loopcase==0);
-    return site;
-}
-
-int* pick_prey_site(int ***array, int size, int row, int column) {
-    // in the future, make sure there isn't a predator and prey on the site; this could run into issues with carrying_capacity
-    static int site[2];
-
-    int right = column == (size - 1) ? 0 : column + 1;
-    /* ^This line checks if x is equal to size - 1. If it is, it means x is at the right boundary of the array,
-     * so the value of right is set to 0. Otherwise, x is incremented by 1, and that value is assigned to right. */
-    int left = column == 0 ? size - 1 : column - 1;
-    int up = row == (size - 1) ? 0 : row + 1;
-    int down = row == 0 ? size - 1 : row - 1;
-
-    int direction = ceil(dist(rng) * (array[1][row][right] + array[1][row][left] + array[1][up][column] + array[1][down][column]));
-
-    if (array[1][row][right] + array[1][row][left] + array[1][up][column] + array[1][down][column]==0) {return NULL;}
-
-    if (direction <= array[1][row][right]) {
-        site[0] = row;
-        site[1] = right;
-        return site;
-    } else if (direction <= array[1][row][right] + array[1][row][left]) {
-        site[0] = row;
-        site[1] = left;
-        return site;
-    } else if (direction <= array[1][row][right] + array[1][row][left] + array[1][up][column]) {
-        site[0] = up;
-        site[1] = column;
-        return site;
-    } else {
-        site[0] = down;
-        site[1] = column;
-        return site;
-    }
-}
-
-int* pick_particle(int ***array, int size){
-    for (int i = 0; i<1; i++) { //picks a random cell and if there's a particle, it moves on - OPTIMIZE LATER
-        int row = random_integer(size)-1;
-        int column = random_integer(size)-1;
-        static int site[2];
-        site[0]=row;
-        site[1]=column;
-        int sum = array[0][row][column]+array[1][row][column];
-        if (sum == 0){
-            i=i-1;
-        } else {
-            return site;
-        }
-    }
-}
+void initialize_array(int*** array,  int size, double predator_density, double prey_density,  int site_capacity);
+void update_array(int*** array, int size, int* N, double birth_prob, double death_prob, double prey_diffusion_prob, double predator_diffusion_prob, double predation_prob, int site_capacity);
+int* pick_particle(int ***array, int size, int* N);
+int* diffusion_site(int ***array, int size, int xcurrent, int ycurrent, int site_capacity);
+int* birth_site(int ***array, int size, int xcurrent, int ycurrent, int site_capacity);
+int* predation_site(int ***array, int size, int xcurrent, int ycurrent, int site_capacity);
 
 int main() {
     srand(time(nullptr));
-    int size = 300;
-    int MC_steps = 1000;
-    const double density = 0.90; // total density of particles (predator and prey); must be even number
-    const double death_rate = 0.1;
-    const double birth_rate = 1;
-    const double pred_rate = 1;
-    int cell_limit = 1; // this must be 1 for the current code
+    /* assumptions: homogenous board, square, two species (predator & prey),
+     *
+     * potential issues: places all predators before prey
+     */
+    const int size = 256;
+    const int MC_steps=1000;
+    // what actually matters is the ratios of the rates
+    const double death_rate = 0.2;
+    const double birth_rate = 0.4;
+    const double predation_rate = 0.25;
+    const double pred_diffusion_rate = 0.3;
+    const double prey_diffusion_rate = 0.2;
+    const double death_prob = death_rate/(death_rate+predation_rate+pred_diffusion_rate);
+    const double birth_prob = birth_rate/(birth_rate+prey_diffusion_rate);
+    const double predation_prob = predation_rate/(predation_rate+death_rate+pred_diffusion_rate);
+    const double pred_diffusion_prob = pred_diffusion_rate/(predation_rate+pred_diffusion_rate+death_rate);
+    const double prey_diffusion_prob = prey_diffusion_rate/(prey_diffusion_rate+birth_rate);
+    const double prey_density = 3;
+    const double predator_density =2;
+    const int site_capacity = 5;
+    if (prey_density+predator_density > site_capacity) { // catch case
+        cout << "The total density is too high " << endl;
+        return 1;
+    }
+
     int N[2];
-    N[0] = density / 2 * size * size; // N[0] is predators; N[1] is prey
-    N[1] = density / 2 * size * size;
-    int ***array = new int **[2];
+    N[0] = predator_density*size*size; // predators in first column
+    N[1] = prey_density*size*size; // prey in second column
+    int ***array = new int **[2]; // initialize array of zeros (2 x size x size)
     for (int s = 0; s < 2; s++) {
         array[s] = new int *[size];
         for (int x = 0; x < size; x++) {
@@ -230,10 +58,334 @@ int main() {
             }
         }
     }
-    initialize_array(array, size, density, cell_limit);
+    initialize_array(array, size, predator_density, prey_density, site_capacity);
     for (int t = 0; t < MC_steps; t++) {
         cout << (double) N[0] / (size * size) << " " << (double) N[1] / (size * size) << endl;
-        update_array(array, size, N, death_rate, birth_rate, pred_rate, cell_limit);
+        update_array(array, size, N, birth_prob, death_prob, prey_diffusion_prob, pred_diffusion_prob, predation_prob, site_capacity);
     }
     return 0;
+}
+
+int random_integer(int sides) { // returns values from 1 to sides
+    int roll = (rand() % sides) + 1;
+    return roll;
+}
+
+void initialize_array(int*** array, const int size, const double predator_density, const double prey_density, const int site_capacity) {
+    int num_prey = prey_density*size*size;
+    int num_predator = predator_density*size*size;
+    for (int i = 1; i <= num_predator; i++){
+        int row = random_integer(size)-1;
+        int column = random_integer(size)-1;
+        if (array[0][row][column] < site_capacity) {
+            array[0][row][column] = array[0][row][column]+1;
+        }else{
+            i--;
+        }
+    }
+    for (int i =1; i <= num_prey; i++){
+        int row = random_integer(size)-1;
+        int column = random_integer(size)-1;
+        if (array[0][row][column]+array[1][row][column] < site_capacity){
+            array[1][row][column] = array[1][row][column]+1;
+        }else{
+            i--;
+        }
+    }
+}
+
+void update_array(int*** array, const int size, int* N, const double birth_prob, const double death_prob, const double prey_diffusion_prob, const double predator_diffusion_prob, const double predation_prob, const int site_capacity) {
+    //cout << "updated populations: " << N[0] << "  " << N[1] << endl;
+    int moves = N[0]+N[1];
+    for (int i=1;i<=moves;i++){
+       // cout << i << " ";
+        if (N[0]+N[1] == 0){ // checks for absorbing state
+            return;
+        }
+        int* site = pick_particle(array, size, N);
+        int x = site[1];
+        int y = site[2];
+        double roll = dist(rng);
+        if (site[0]==0){
+            //predator
+            if (roll < predator_diffusion_prob){
+                // diffuses
+                int* destination = diffusion_site(array, size, x, y, site_capacity);
+                if (destination == nullptr){ // catch case for if all neighboring sites are full
+                } else{
+                    int new_x = destination[0];
+                    int new_y = destination[1];
+                    array[0][x][y]=array[0][x][y]-1;
+                    array[0][new_x][new_y] = array[0][new_x][new_y]+1;
+                }
+            } else if (roll < predator_diffusion_prob+predation_prob){
+                // predation
+                int* predation_location = predation_site(array, size, x, y, site_capacity);
+                if (predation_location==nullptr){
+                } else {
+                    int pred_x = predation_location[0];
+                    int pred_y = predation_location[1];
+                    array[1][pred_x][pred_y] = array[1][pred_x][pred_y] - 1;
+                    array[0][pred_x][pred_y] = array[0][pred_x][pred_y]+1;
+                    N[0] = N[0] + 1;
+                    N[1] = N[1] - 1;
+                }
+            } else {
+                // death
+                array[0][x][y]=array[0][x][y]-1;
+                N[0]=N[0]-1;
+            }
+        } else{
+            //prey
+            if (roll < prey_diffusion_prob){
+                // diffuses
+                int* destination = diffusion_site(array, size, x, y, site_capacity);
+                if (destination == nullptr){ // catch case for if all neighboring sites are full
+                } else{
+                    int new_x = destination[0];
+                    int new_y = destination[1];
+                    array[1][x][y]=array[1][x][y]-1;
+                    array[1][new_x][new_y] = array[1][new_x][new_y]+1;
+                }
+            } else{
+                // birth
+                int* birth_location = birth_site(array, size, x, y, site_capacity);
+                if (birth_location == nullptr) {
+                } else {
+                    int birth_x = birth_location[0];
+                    int birth_y = birth_location[1];
+                    array[1][birth_x][birth_y]=array[1][birth_x][birth_y]+1;
+                    N[1]=N[1]+1;
+                }
+            }
+        }
+    }
+}
+
+int* predation_site(int ***array, const int size, int xcurrent, int ycurrent, int site_capacity) {
+    static int site[2];
+
+    int right = xcurrent == (size - 1) ? 0 : xcurrent + 1;
+    /* ^This line checks if x is equal to size - 1. If it is, it means x is at the right boundary of the array,
+     * so the value of right is set to 0. Otherwise, x is incremented by 1, and that value is assigned to right. */
+    int left = xcurrent == 0 ? size - 1 : xcurrent - 1;
+    int up = ycurrent == (size - 1) ? 0 : ycurrent + 1;
+    int down = ycurrent == 0 ? size - 1 : ycurrent - 1;
+
+    int prey_total = array[1][xcurrent][ycurrent]+array[1][right][ycurrent]+array[1][left][ycurrent]+array[1][xcurrent][up]+array[1][xcurrent][down];
+    if (prey_total == 0){
+        return nullptr;
+    }
+
+    int i=0;
+    while (i==0) {
+        int roll = random_integer(5);
+        switch (roll){
+            case 1:
+                //same cell
+                if (array[1][xcurrent][ycurrent]==0){
+                } else{
+                    site[0]=xcurrent;
+                    site[1]=ycurrent;
+                    i=1;
+                }
+                break;
+            case 2:
+                // up
+                if (array[1][xcurrent][up]==0){
+                } else{
+                    site[0]=xcurrent;
+                    site[1]=up;
+                    i=1;
+                }
+                break;
+            case 3:
+                //down
+                if (array[1][xcurrent][down]==0){
+                } else{
+                    site[0]=xcurrent;
+                    site[1]=down;
+                    i=1;
+                }
+                break;
+            case 4:
+                //right
+                if (array[1][right][ycurrent]==0){
+                } else{
+                    site[0]=right;
+                    site[1]=ycurrent;
+                    i=1;
+                }
+                break;
+            case 5:
+                //left
+                if (array[1][left][ycurrent]==0){
+                } else{
+                    site[0]=left;
+                    site[1]=ycurrent;
+                    i=1;
+                }
+                break;
+            default:
+                cout << "default case reached: predation";
+        }
+    }
+    return site;
+}
+
+int* birth_site(int ***array, const int size, int xcurrent, int ycurrent, int site_capacity){
+    static int site[2];
+
+    int right = xcurrent == (size - 1) ? 0 : xcurrent + 1;
+    /* ^This line checks if x is equal to size - 1. If it is, it means x is at the right boundary of the array,
+     * so the value of right is set to 0. Otherwise, x is incremented by 1, and that value is assigned to right. */
+    int left = xcurrent == 0 ? size - 1 : xcurrent - 1;
+    int up = ycurrent == (size - 1) ? 0 : ycurrent + 1;
+    int down = ycurrent == 0 ? size - 1 : ycurrent - 1;
+
+    int pred_total = array[0][right][ycurrent]+array[0][left][ycurrent]+array[0][xcurrent][down]+array[0][xcurrent][up]+array[0][xcurrent][ycurrent];
+    int prey_total = array[1][right][ycurrent]+array[1][left][ycurrent]+array[1][xcurrent][down]+array[1][xcurrent][up]+array[1][xcurrent][ycurrent];
+    int total = pred_total+prey_total;
+    if (total == site_capacity*5) {
+        return nullptr;
+    }
+
+    int i = 0;
+    while (i==0){
+        int cell = random_integer(5);
+        switch (cell){
+            case 1:
+                //right
+                if (array[0][right][ycurrent]+array[1][right][ycurrent] == site_capacity) {
+                } else {
+                    site[0]=right;
+                    site[1]=ycurrent;
+                    i=1;
+                }
+                break;
+            case 2:
+                // left
+                if (array[0][left][ycurrent]+array[1][left][ycurrent] == site_capacity) {
+                } else {
+                    site[0]=left;
+                    site[1]=ycurrent;
+                    i=1;
+                }
+                break;
+            case 3:
+                //up
+                if (array[0][xcurrent][up]+array[1][xcurrent][up] == site_capacity) {
+                } else {
+                    site[0]=xcurrent;
+                    site[1]=up;
+                    i=1;
+                }
+                break;
+            case 4:
+                //down
+                if (array[0][xcurrent][down]+array[1][xcurrent][down] == site_capacity) {
+                } else {
+                    site[0]=xcurrent;
+                    site[1]=down;
+                    i=1;
+                }
+                break;
+            case 5:
+                // same cell
+                if (array[0][xcurrent][ycurrent]+array[1][xcurrent][ycurrent] == site_capacity){
+                } else {
+                    site[0]=xcurrent;
+                    site[1]=ycurrent;
+                    i=1;
+                }
+                break;
+        }
+    }
+    return site;
+}
+
+int* diffusion_site(int ***array, const int size, int xcurrent, int ycurrent, int site_capacity){
+    static int site[2];
+    int right = xcurrent == (size - 1) ? 0 : xcurrent + 1;
+    /* ^This line checks if x is equal to size - 1. If it is, it means x is at the right boundary of the array,
+     * so the value of right is set to 0. Otherwise, x is incremented by 1, and that value is assigned to right. */
+    int left = xcurrent == 0 ? size - 1 : xcurrent - 1;
+    int up = ycurrent == (size - 1) ? 0 : ycurrent + 1;
+    int down = ycurrent == 0 ? size - 1 : ycurrent - 1;
+
+    int pred_total = array[0][right][ycurrent]+array[0][left][ycurrent]+array[0][xcurrent][down]+array[0][xcurrent][up];
+    int prey_total = array[1][right][ycurrent]+array[1][left][ycurrent]+array[1][xcurrent][down]+array[1][xcurrent][up];
+    int total = pred_total+prey_total;
+    if (total == site_capacity*4) {
+        return nullptr;
+    }
+
+    int i=0;
+    while (i==0){
+
+
+        int direction = random_integer(4);
+        switch (direction){
+            case 1:
+                //right
+                if (array[0][right][ycurrent]+array[1][right][ycurrent] == site_capacity) {
+                } else {
+                    site[0]=right;
+                    site[1]=ycurrent;
+                    i=1;
+                }
+                break;
+            case 2:
+                // left
+                if (array[0][left][ycurrent]+array[1][left][ycurrent] == site_capacity) {
+                } else {
+                    site[0]=left;
+                    site[1]=ycurrent;
+                    i=1;
+                }
+                break;
+            case 3:
+                //up
+                if (array[0][xcurrent][up]+array[1][xcurrent][up] == site_capacity) {
+                } else {
+                    site[0]=xcurrent;
+                    site[1]=up;
+                    i=1;
+                }
+                break;
+            case 4:
+                //down
+                if (array[0][xcurrent][down]+array[1][xcurrent][down] == site_capacity) {
+                } else {
+                    site[0]=xcurrent;
+                    site[1]=down;
+                    i=1;
+                }
+                break;
+            default:
+                cout << "default case reached: diffusion";
+                break;
+            }
+    }
+    return site;
+}
+
+int* pick_particle(int ***array, const int size, int* N){
+    static int site[3];
+    int total = N[0]+N[1];
+    int roll = random_integer(total);
+    int counter=0;
+    for (int x = 0; x < size; x++){
+        for (int y =0; y<size; y++) {
+            for (int species=0;species<2;species++){
+                counter = counter+array[species][x][y];
+                if (counter>=roll) { // if there's a site that triggers with more than one particle, need to specify which one reacts (future code)
+                    site[0] = species;
+                    site[1] = x;
+                    site[2] = y;
+                    return site;
+                }
+            }
+        }
+    }
 }
