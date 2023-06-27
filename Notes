@@ -1,7 +1,1 @@
-For future implementation:
 
-1. make predator and prey smart
-  a. if prey is next to predator, it will run if there's an open spot
-  b. if predator is next to prey, it will hunt (still a chance of death)  
-2. adaptations
-3. non-homogenous lattice
